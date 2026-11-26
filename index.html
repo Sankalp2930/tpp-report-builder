@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TPP Report Builder</title>
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c8371e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TPP Reports">
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#e7e4df,#171513);--panel:light-dark(#fff,#221f1c);--ink:light-dark(#141210,#eeeae4);--mute:light-dark(#6b655d,#a59d93);--line:light-dark(#d4cfc7,#3a3530)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
+form{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px 24px}
+img{width:56px;height:56px;border-radius:12px;display:block;margin-bottom:14px}
+h1{font-size:22px;margin:0 0 4px}
+p{margin:0 0 18px;color:var(--mute);font-size:14px}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 4px}
+input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input:focus-visible,button:focus-visible{outline:2px solid #c8371e;outline-offset:1px}
+button{width:100%;margin-top:20px;min-height:44px;font:inherit;font-weight:600;border:0;border-radius:8px;background:#c8371e;color:#fff;cursor:pointer}
+button[disabled]{opacity:.6;cursor:wait}
+.err{color:#c8371e;font-size:14px;min-height:20px;margin-top:12px}
+</style>
+</head>
+<body>
+<form id="f" autocomplete="on" hidden>
+  <img src="icon-192.png" alt="">
+  <h1>TPP Report Builder</h1>
+  <p>Sign in to continue.</p>
+  <label for="u">Username</label><input id="u" name="username" autocomplete="username" required autocapitalize="none" spellcheck="false">
+  <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
+  <button id="go" type="submit">Sign in</button>
+  <div class="err" id="err" role="alert"></div>
+</form>
+<script src="vault.js"></script>
+<script>
+{
+const $=id=>document.getElementById(id);
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+let vault=null;
+const get=k=>{try{return sessionStorage.getItem(k)}catch(e){return null}};
+const put=(k,v)=>{try{sessionStorage.setItem(k,v)}catch(e){}};
+function launch(html){document.open();document.write(html);document.close()}
+async function load(){
+  try{const r=await fetch("vault.json",{cache:"no-store"});vault=await r.json()}
+  catch(e){$("f").hidden=false;$("err").textContent="Could not load the app. Check your connection.";return}
+  const k=get("tpp:k");
+  if(k){try{const o=await TPPVault.withKey(vault,k);launch(o.app);return}catch(e){try{sessionStorage.clear()}catch(_){}}}
+  $("f").hidden=false;$("u").focus();
+}
+$("f").addEventListener("submit",async e=>{
+  e.preventDefault();if(!vault)return;
+  $("go").disabled=true;$("go").textContent="Signing in…";$("err").textContent="";
+  try{
+    const o=await TPPVault.open(vault,$("u").value,$("p").value);
+    const me=o.dir.find(d=>d.id===o.id)||{name:$("u").value.trim(),role:"user"};
+    put("tpp:k",o.raw);put("tpp:u",JSON.stringify({name:me.name,role:me.role,id:o.id}));
+    launch(o.app);
+  }catch(err){$("err").textContent="Username or password is incorrect.";$("go").disabled=false;$("go").textContent="Sign in";$("p").select()}
+});
+load();
+}
+</script>
+</body>
+</html>
